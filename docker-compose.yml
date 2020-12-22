@@ -1,0 +1,55 @@
+version: '3.7'
+services:
+  grafana:
+    container_name: 'grafana'
+    image: grafana/grafana:7.3.5
+    restart: always
+    network_mode: 'host'
+
+  go-carbon:
+    container_name: 'go-carbon'
+    image: openmetric/go-carbon
+    network_mode: 'host'
+    #environment:
+    #- AUTO_CONFIG=true
+    ports:
+    - 2003:2003 #line
+    - 2004:2004 #pickle
+    - 8081:8081 #carbonserver
+    - 7002:7002 #carbonlink
+
+    volumes:
+    - ./openmetric/:/openmetric/
+
+  carbon-relay-ng:
+    container_name: 'carbon-relay-ng'
+    depends_on:
+    - go-carbon
+    restart: always
+    image: raintank/carbon-relay-ng
+    network_mode: 'host'
+    volumes:
+    - ./carbon-relay-ng/conf/carbon-relay-ng.ini:/conf/carbon-relay-ng.ini
+    - ./carbon-relay-ng/spool/:/var/spool/carbon-relay-ng
+
+  carbonapi:
+    container_name: 'carbonapi'
+    depends_on:
+    - go-carbon
+    image: openmetric/carbonapi
+    network_mode: 'host'
+    ports:
+    - 9000:9000
+
+    volumes:
+    - ./carbonapi/conf/:/openmetric/conf/
+
+  haproxy:
+    container_name: 'haproxy'
+    image: haproxy:1.5.9
+    depends_on:
+    - grafana
+    volumes:
+    - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    restart: always
+    network_mode: 'host'
